@@ -95,6 +95,11 @@ body
     color: #acaebd;
     font-size: 13px;
     margin: 2px 0 13px 0;
+    transition: opacity 0.3s ease;
+    min-height: 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 #track-time
@@ -419,7 +424,37 @@ body
   <script type="text/javascript">
     $(function()
 {
-    var playerTrack = $("#player-track"), bgArtwork = $('#bg-artwork'), bgArtworkUrl, albumName = $('#album-name'), trackName = $('#track-name'), albumArt = $('#album-art'), sArea = $('#s-area'), seekBar = $('#seek-bar'), trackTime = $('#track-time'), insTime = $('#ins-time'), sHover = $('#s-hover'), playPauseButton = $("#play-pause-button"),  i = playPauseButton.find('i'), tProgress = $('#current-time'), tTime = $('#track-length'), seekT, seekLoc, seekBarPos, cM, ctMinutes, ctSeconds, curMinutes, curSeconds, durMinutes, durSeconds, playProgress, bTime, nTime = 0, buffInterval = null, tFlag = false, albums = ['我的梦','Dream It Possible'], trackNames = ['Giấc mộng của tôi - 张靓颖','Dream It Possible'], albumArtworks = ['_1','_2'], trackUrl = ['https://raw.githubusercontent.com/Huythanh0x/NotionMusicWidget/refs/heads/main/Gi%E1%BA%A5c%20m%E1%BB%99ng%20c%E1%BB%A7a%20t%C3%B4i%20-%20%E6%88%91%E7%9A%84%E6%A2%A6-%20%E5%BC%A0%E9%9D%93%E9%A2%96.mp3','https://raw.githubusercontent.com/Huythanh0x/NotionMusicWidget/refs/heads/main/Dream%20It%20Possible.mp3'], playPreviousTrackButton = $('#play-previous'), playNextTrackButton = $('#play-next'), currIndex = -1;
+    var playerTrack = $("#player-track"), bgArtwork = $('#bg-artwork'), bgArtworkUrl, albumName = $('#album-name'), trackName = $('#track-name'), albumArt = $('#album-art'), sArea = $('#s-area'), seekBar = $('#seek-bar'), trackTime = $('#track-time'), insTime = $('#ins-time'), sHover = $('#s-hover'), playPauseButton = $("#play-pause-button"),  i = playPauseButton.find('i'), tProgress = $('#current-time'), tTime = $('#track-length'), seekT, seekLoc, seekBarPos, cM, ctMinutes, ctSeconds, curMinutes, curSeconds, durMinutes, durSeconds, playProgress, bTime, nTime = 0, buffInterval = null, tFlag = false, albums = ['我的梦','Dream It Possible'], trackNames = ['Giấc mộng của tôi - 张靓颖','Dream It Possible'], albumArtworks = ['_1','_2'], trackUrl = ['https://raw.githubusercontent.com/Huythanh0x/NotionMusicWidget/refs/heads/main/Gi%E1%BA%A5c%20m%E1%BB%99ng%20c%E1%BB%A7a%20t%C3%B4i%20-%20%E6%88%91%E7%9A%84%E6%A2%A6-%20%E5%BC%A0%E9%9D%93%E9%A2%96.mp3','https://raw.githubusercontent.com/Huythanh0x/NotionMusicWidget/refs/heads/main/Dream%20It%20Possible.mp3'], playPreviousTrackButton = $('#play-previous'), playNextTrackButton = $('#play-next'), currIndex = -1, lrcData = null, lrcIndex = 0;
+
+    function parseLrc(text) {
+        var lines = text.split('\n');
+        var result = [];
+        var re = /\[(\d{2}):(\d{2})\.(\d{2,3})\](.*)/;
+        lines.forEach(function(line) {
+            var m = line.match(re);
+            if (m) {
+                var t = parseInt(m[1]) * 60 + parseInt(m[2]) + parseInt(m[3]) / (m[3].length === 3 ? 1000 : 100);
+                result.push({ time: t, text: m[4].trim() });
+            }
+        });
+        return result.sort(function(a, b) { return a.time - b.time; });
+    }
+
+    function fetchLyrics(index) {
+        lrcData = null;
+        lrcIndex = 0;
+        trackName.text(trackNames[index]);
+        var lrcUrl = trackUrl[index].replace(/\.mp3([^.]*)?$/, '.lrc');
+        $.ajax({
+            url: lrcUrl,
+            dataType: 'text',
+            success: function(data) {
+                var parsed = parseLrc(data);
+                lrcData = parsed.length ? parsed : null;
+            },
+            error: function() { lrcData = null; }
+        });
+    }
 
     function playPause()
     {
@@ -538,6 +573,19 @@ body
 
         
                 seekBar.width(playProgress+'%');
+
+                if (lrcData && lrcData.length > 0) {
+                    var ct = audio.currentTime;
+                    var newIdx = 0;
+                    for (var li = 0; li < lrcData.length; li++) {
+                        if (lrcData[li].time <= ct) newIdx = li;
+                        else break;
+                    }
+                    if (newIdx !== lrcIndex) {
+                        lrcIndex = newIdx;
+                        trackName.text(lrcData[lrcIndex].text);
+                    }
+                }
                 
                 if( playProgress == 100 )
                 {
@@ -608,7 +656,7 @@ body
             }
 
             albumName.text(currAlbum);
-            trackName.text(currTrackName);
+            fetchLyrics(currIndex);
             albumArt.find('img.active').removeClass('active');
             $('#'+currArtwork).addClass('active');
             
@@ -649,6 +697,8 @@ body
             seekBar.width(0);
             tProgress.text('00:00');
             tFlag = false;
+            lrcData = null;
+            lrcIndex = 0;
             if (currIndex < albumArtworks.length - 1) {
                 selectTrack(1);
             } else {

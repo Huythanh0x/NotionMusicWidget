@@ -107,6 +107,13 @@ body
     font-size: 14px;
     font-weight: 600;
     letter-spacing: 0.01em;
+    text-overflow: clip;
+}
+
+#track-name .lyric-text
+{
+    display: inline-block;
+    white-space: nowrap;
 }
 
 #track-time
@@ -450,7 +457,8 @@ body
     function fetchLyrics(index) {
         lrcData = null;
         lrcIndex = 0;
-        trackName.stop(true, true).removeClass('lyric').text(trackNames[index]).show();
+        trackName.stop(true, true).find('.lyric-text').stop(true, true);
+        trackName.removeClass('lyric').html('').text(trackNames[index]).show();
         var lrcUrl = trackUrl[index].replace(/\.mp3([^.]*)?$/, '.lrc');
         $.ajax({
             url: lrcUrl,
@@ -591,8 +599,23 @@ body
                     if (newIdx !== lrcIndex) {
                         lrcIndex = newIdx;
                         var newText = lrcData[lrcIndex].text;
-                        trackName.fadeOut(120, function() {
-                            trackName.addClass('lyric').text(newText).fadeIn(200);
+                        var nextTime = (lrcIndex + 1 < lrcData.length)
+                            ? lrcData[lrcIndex + 1].time
+                            : (audio.duration || lrcData[lrcIndex].time + 5);
+                        var lineDuration = Math.max(nextTime - lrcData[lrcIndex].time, 2);
+                        trackName.stop(true, true).fadeOut(120, function() {
+                            trackName.addClass('lyric')
+                                .html('<span class="lyric-text">' + $('<span>').text(newText).html() + '</span>')
+                                .fadeIn(200, function() {
+                                    var span = trackName.find('.lyric-text');
+                                    var overflow = span[0].offsetWidth - trackName[0].offsetWidth;
+                                    if (overflow > 0) {
+                                        var rightPadding = 44;
+                                        var pauseMs = 400;
+                                        var scrollMs = Math.max(lineDuration * 600 - pauseMs, 500);
+                                        span.delay(pauseMs).animate({ marginLeft: -(overflow + rightPadding) }, scrollMs, 'linear');
+                                    }
+                                });
                         });
                     }
                 }

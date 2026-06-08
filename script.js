@@ -1,12 +1,16 @@
 $(function() {
 
+    function encodePath(path) {
+        return path.split('/').map(encodeURIComponent).join('/');
+    }
+
     var baseUrl       = 'https://raw.githubusercontent.com/' + playerConfig.userName + '/' + playerConfig.repoName + '/refs/heads/' + playerConfig.branch + '/',
         songs         = playerConfig.songs,
         albums        = songs.map(function(s) { return s.album; }),
         trackNames    = songs.map(function(s) { return s.name; }),
         albumArtworks = songs.map(function(s, i) { return 'art_' + i; }),
-        trackUrl      = songs.map(function(s) { return baseUrl + s.audio; }),
-        lyricsUrl     = songs.map(function(s) { return baseUrl + s.audio.replace('.mp3', '.lrc'); });
+        trackUrl      = songs.map(function(s) { return baseUrl + encodePath(s.audio); }),
+        lyricsUrl     = songs.map(function(s) { return baseUrl + encodePath(s.audio.replace('.mp3', '.lrc')); });
 
     var playerTrack = $("#player-track"),
         bgArtwork = $('#bg-artwork'),
@@ -270,7 +274,7 @@ $(function() {
 
         songs.forEach(function(song, idx) {
             $('<img>')
-                .attr('src', baseUrl + song.artwork)
+                .attr('src', baseUrl + encodePath(song.artwork))
                 .attr('id', albumArtworks[idx])
                 .prependTo(albumArt);
         });

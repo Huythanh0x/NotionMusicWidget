@@ -95,11 +95,18 @@ body
     color: #acaebd;
     font-size: 13px;
     margin: 2px 0 13px 0;
-    transition: opacity 0.3s ease;
     min-height: 16px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+#track-name.lyric
+{
+    color: #fd6d94;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
 }
 
 #track-time
@@ -443,7 +450,7 @@ body
     function fetchLyrics(index) {
         lrcData = null;
         lrcIndex = 0;
-        trackName.text(trackNames[index]);
+        trackName.stop(true, true).removeClass('lyric').text(trackNames[index]).show();
         var lrcUrl = trackUrl[index].replace(/\.mp3([^.]*)?$/, '.lrc');
         $.ajax({
             url: lrcUrl,
@@ -583,7 +590,10 @@ body
                     }
                     if (newIdx !== lrcIndex) {
                         lrcIndex = newIdx;
-                        trackName.text(lrcData[lrcIndex].text);
+                        var newText = lrcData[lrcIndex].text;
+                        trackName.fadeOut(120, function() {
+                            trackName.addClass('lyric').text(newText).fadeIn(200);
+                        });
                     }
                 }
                 

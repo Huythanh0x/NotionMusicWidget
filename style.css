@@ -73,7 +73,7 @@ body
 
 #player-track.active
 {
-    top: -92px;
+    top: -106px;
 }
 
 #album-name
@@ -104,6 +104,33 @@ body
 }
 
 #track-name .lyric-text
+{
+    display: inline-block;
+    white-space: nowrap;
+}
+
+#track-name-secondary
+{
+    display: none;
+    color: #acaebd;
+    font-size: 12px;
+    margin: -8px 0 10px 0;
+    min-height: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#track-name-secondary.lyric
+{
+    display: block;
+    color: #5b9bd5;
+    font-size: 12px;
+    font-weight: 500;
+    text-overflow: clip;
+}
+
+#track-name-secondary .lyric-text
 {
     display: inline-block;
     white-space: nowrap;

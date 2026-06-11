@@ -10,13 +10,15 @@ $(function() {
         trackNames    = songs.map(function(s) { return s.name; }),
         albumArtworks = songs.map(function(s, i) { return 'art_' + i; }),
         trackUrl      = songs.map(function(s) { return baseUrl + encodePath(s.audio); }),
-        lyricsUrl     = songs.map(function(s) { return baseUrl + encodePath(s.audio.replace('.mp3', '.lrc')); });
+        lyricsUrl     = songs.map(function(s) { return baseUrl + encodePath(s.audio.replace('.mp3', '.lrc')); }),
+        secondaryLyricsUrl = songs.map(function(s) { return baseUrl + encodePath(s.audio.replace('.mp3', '-2nd.lrc')); });
 
     var playerTrack = $("#player-track"),
         bgArtwork = $('#bg-artwork'),
         bgArtworkUrl,
         albumName = $('#album-name'),
         trackName = $('#track-name'),
+        trackNameSecondary = $('#track-name-secondary'),
         albumArt = $('#album-art'),
         sArea = $('#s-area'),
         seekBar = $('#seek-bar'),
@@ -39,6 +41,7 @@ $(function() {
         playNextTrackButton = $('#play-next'),
         currIndex = -1,
         lrcData = null,
+        lrcData2 = null,
         lrcIndex = 0;
 
     function parseLrc(text) {
@@ -55,21 +58,79 @@ $(function() {
         return result.sort(function(a, b) { return a.time - b.time; });
     }
 
+    function getLrcIndex(data, ct) {
+        var idx = 0;
+        for (var li = 0; li < data.length; li++) {
+            if (data[li].time <= ct) idx = li;
+            else break;
+        }
+        return idx;
+    }
+
+    function resetLyricsDisplay(fallbackText) {
+        trackName.stop(true, true).find('.lyric-text').stop(true, true);
+        trackNameSecondary.stop(true, true).find('.lyric-text').stop(true, true);
+        trackName.removeClass('lyric').html('').text(fallbackText).show();
+        trackNameSecondary.removeClass('lyric').html('').hide();
+    }
+
+    function scrollLyricLine(container, lineDuration) {
+        var span = container.find('.lyric-text');
+        var overflow = span[0].offsetWidth - container[0].offsetWidth;
+        if (overflow > 0) {
+            var rightPadding = 44;
+            var pauseMs = 400;
+            var scrollMs = Math.max(lineDuration * 600 - pauseMs, 500);
+            span.delay(pauseMs).animate({ marginLeft: -(overflow + rightPadding) }, scrollMs, 'linear');
+        }
+    }
+
+    function showLyricLines(primaryText, secondaryText, lineDuration) {
+        trackName.stop(true, true).fadeOut(120, function() {
+            trackName.addClass('lyric')
+                .html('<span class="lyric-text">' + $('<span>').text(primaryText).html() + '</span>')
+                .fadeIn(200, function() {
+                    scrollLyricLine(trackName, lineDuration);
+                });
+        });
+
+        if (secondaryText) {
+            trackNameSecondary.stop(true, true).fadeOut(120, function() {
+                trackNameSecondary.addClass('lyric')
+                    .html('<span class="lyric-text">' + $('<span>').text(secondaryText).html() + '</span>')
+                    .fadeIn(200, function() {
+                        scrollLyricLine(trackNameSecondary, lineDuration);
+                    });
+            });
+        } else {
+            trackNameSecondary.stop(true, true).removeClass('lyric').html('').hide();
+        }
+    }
+
     function fetchLyrics(index) {
         lrcData = null;
+        lrcData2 = null;
         lrcIndex = 0;
-        trackName.stop(true, true).find('.lyric-text').stop(true, true);
-        trackName.removeClass('lyric').html('').text(trackNames[index]).show();
-        var url = lyricsUrl[index];
-        if (!url) return;
+        resetLyricsDisplay(trackNames[index]);
+
         $.ajax({
-            url: url,
+            url: lyricsUrl[index],
             dataType: 'text',
             success: function(data) {
                 var parsed = parseLrc(data);
                 lrcData = parsed.length ? parsed : null;
             },
             error: function() { lrcData = null; }
+        });
+
+        $.ajax({
+            url: secondaryLyricsUrl[index],
+            dataType: 'text',
+            success: function(data) {
+                var parsed = parseLrc(data);
+                lrcData2 = parsed.length ? parsed : null;
+            },
+            error: function() { lrcData2 = null; }
         });
     }
 
@@ -168,32 +229,19 @@ $(function() {
 
         if (lrcData && lrcData.length > 0) {
             var ct = audio.currentTime;
-            var newIdx = 0;
-            for (var li = 0; li < lrcData.length; li++) {
-                if (lrcData[li].time <= ct) newIdx = li;
-                else break;
-            }
+            var newIdx = getLrcIndex(lrcData, ct);
             if (newIdx !== lrcIndex) {
                 lrcIndex = newIdx;
                 var newText = lrcData[lrcIndex].text;
+                var secondaryText = null;
+                if (lrcData2 && lrcData2.length > 0) {
+                    secondaryText = lrcData2[getLrcIndex(lrcData2, ct)].text;
+                }
                 var nextTime = (lrcIndex + 1 < lrcData.length)
                     ? lrcData[lrcIndex + 1].time
                     : (audio.duration || lrcData[lrcIndex].time + 5);
                 var lineDuration = Math.max(nextTime - lrcData[lrcIndex].time, 2);
-                trackName.stop(true, true).fadeOut(120, function() {
-                    trackName.addClass('lyric')
-                        .html('<span class="lyric-text">' + $('<span>').text(newText).html() + '</span>')
-                        .fadeIn(200, function() {
-                            var span = trackName.find('.lyric-text');
-                            var overflow = span[0].offsetWidth - trackName[0].offsetWidth;
-                            if (overflow > 0) {
-                                var rightPadding = 44;
-                                var pauseMs = 400;
-                                var scrollMs = Math.max(lineDuration * 600 - pauseMs, 500);
-                                span.delay(pauseMs).animate({ marginLeft: -(overflow + rightPadding) }, scrollMs, 'linear');
-                            }
-                        });
-                });
+                showLyricLines(newText, secondaryText, lineDuration);
             }
         }
 
@@ -301,6 +349,7 @@ $(function() {
             tProgress.text('00:00');
             tFlag = false;
             lrcData = null;
+            lrcData2 = null;
             lrcIndex = 0;
             if (currIndex < albumArtworks.length - 1) {
                 selectTrack(1);
